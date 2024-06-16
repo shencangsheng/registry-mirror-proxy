@@ -1,0 +1,9 @@
+[package]
+name = "registry-mirror-proxy"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+hyper = "0.14"
+tokio = { version = "1", features = ["full"] }
+hyperlocal = "0.8"
