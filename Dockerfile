@@ -14,4 +14,6 @@ WORKDIR /usr/src/app
 
 COPY --from=builder /usr/src/app/target/release/registry-mirror-proxy .
 
+EXPOSE [3000]
+
 CMD ["./registry-mirror-proxy"]

@@ -76,7 +76,7 @@ async fn perform_docker_pull_push(image_name: &str, image_reference: &str) -> Re
 
 #[tokio::main]
 async fn main() {
-    let addr = ([127, 0, 0, 1], 3000).into();
+    let addr = ([0, 0, 0, 0], 3000).into();
 
     let make_svc = make_service_fn(|_conn| async {
         Ok::<_, Infallible>(service_fn(handle_request))
