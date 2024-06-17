@@ -63,7 +63,7 @@ jobs:
       - name: Docker Buildx (push)
         run: |
           docker buildx build \
-            --platform linux/386,linux/amd64,linux/arm/v7,linux/arm64 \
+            --platform linux/amd64,linux/arm64 \
             --output "type=image,push=true" \
             --tag shencangsheng/registry-mirror-proxy:latest \
             --tag shencangsheng/registry-mirror-proxy:${{ steps.prepare.outputs.version }} \
