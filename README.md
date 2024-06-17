@@ -10,6 +10,10 @@ Features:
 
 1. NPM Register API 
 
+## Credits
+
+This project was inspired by the [shencangsheng/easy-registry-mirror](https://github.com/shencangsheng/easy-registry-mirror) available in the GitHub project.
+
 ## License
 
 A short snippet describing the license (MIT)
