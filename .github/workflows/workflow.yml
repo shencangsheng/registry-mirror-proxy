@@ -38,7 +38,7 @@ jobs:
           draft: false
           prerelease: false
           body_path: CHANGELOG.md
-  push_to_registry_alias:
+  push_image:
     name: Push Docker image to Docker Hub
     runs-on: ubuntu-latest
     steps:
