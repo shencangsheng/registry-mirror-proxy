@@ -10,6 +10,7 @@ const DOCKER_SOCKET_PATH: &str = "/var/run/docker.sock";
 const DOCKER_REGISTER_HOST_MACHINE_PORT: i32 = 15000;
 
 async fn handle_request(req: Request<Body>) -> Result<Response<Body>, Infallible> {
+    println!("Request: {},{}", req.method(), req.uri());
     if let Some((image_name, image_reference)) = extract_image_info(req.method(), req.uri()) {
         if let Err(err) = perform_docker_pull_push(&image_name, &image_reference).await {
             eprintln!("Error in pulling and pushing Docker image: {}", err);
@@ -54,7 +55,9 @@ async fn perform_docker_pull_push(image_name: &str, image_reference: &str) -> Re
         &format!("/images/create?fromImage={}&tag={}", image_name, image_reference),
     );
     let pull_req = Request::post(pull_url).body(Body::empty()).unwrap();
-    docker_client.request(pull_req).await?;
+    let pull_res = docker_client.request(pull_req).await?;
+    let body_bytes = to_bytes(pull_res.into_body()).await.unwrap();
+    println!("Pull Response Body: {}", String::from_utf8_lossy(&body_bytes));
 
     let new_image_tag = format!("127.0.0.1:{}/{}:{}", DOCKER_REGISTER_HOST_MACHINE_PORT, image_name, image_reference);
     let tag_url = LocalUri::new(
@@ -64,6 +67,7 @@ async fn perform_docker_pull_push(image_name: &str, image_reference: &str) -> Re
     let tag_req = Request::post(tag_url).body(Body::empty()).unwrap();
     let res = docker_client.request(tag_req).await?;
     let body_bytes = to_bytes(res.into_body()).await.unwrap();
+    println!("Tag Response Body: {}", String::from_utf8_lossy(&body_bytes));
 
     let push_url = LocalUri::new(
         DOCKER_SOCKET_PATH,
@@ -74,7 +78,9 @@ async fn perform_docker_pull_push(image_name: &str, image_reference: &str) -> Re
     push_req.headers_mut().insert("X-Registry-Auth", "123".parse().unwrap());
     push_req.headers_mut().insert(CONTENT_TYPE, HeaderValue::from_static("application/vnd.docker.distribution.manifest.v2+json"));
 
-    docker_client.request(push_req).await?;
+    let push_res = docker_client.request(push_req).await?;
+    let push_body_bytes = to_bytes(push_res.into_body()).await.unwrap();
+    println!("Push Response Body: {}", String::from_utf8_lossy(&push_body_bytes));
 
     Ok(())
 }
