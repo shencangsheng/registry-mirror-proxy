@@ -7,8 +7,11 @@ use hyper::header::{CONTENT_TYPE, HeaderValue};
 
 const DOCKER_REGISTER_URL: &str = "http://docker-registry:5000";
 const DOCKER_SOCKET_PATH: &str = "/var/run/docker.sock";
+const DOCKER_REGISTER_HOST_MACHINE_PORT: i32 = 15000;
 
 async fn handle_request(req: Request<Body>) -> Result<Response<Body>, Infallible> {
+    println!("{},{}", req.method(), req.uri());
+
     if let Some((image_name, image_reference)) = extract_image_info(req.method(), req.uri()) {
         if let Err(err) = perform_docker_pull_push(&image_name, &image_reference).await {
             eprintln!("Error in pulling and pushing Docker image: {}", err);
@@ -17,7 +20,7 @@ async fn handle_request(req: Request<Body>) -> Result<Response<Body>, Infallible
 
     let method = req.method().clone();
     let uri = format!("{}{}", DOCKER_REGISTER_URL, req.uri().path_and_query().map(|p| p.as_str()).unwrap_or("")).parse::<Uri>().unwrap();
-
+    println!("URI: {}", uri);
     let client = Client::new();
     let mut new_req = Request::new(req.into_body());
     *new_req.method_mut() = method;
@@ -51,7 +54,7 @@ async fn perform_docker_pull_push(image_name: &str, image_reference: &str) -> Re
     let pull_req = Request::post(pull_url).body(Body::empty()).unwrap();
     docker_client.request(pull_req).await?;
 
-    let new_image_tag = format!("{}/{}:{}", DOCKER_REGISTER_URL.strip_prefix("http://").unwrap_or(DOCKER_REGISTER_URL), image_name, image_reference);
+    let new_image_tag = format!("{}:{}/{}:{}", "127.0.0.1", DOCKER_REGISTER_HOST_MACHINE_PORT, image_name, image_reference);
     let tag_url = LocalUri::new(
         DOCKER_SOCKET_PATH,
         &format!("/images/{}/tag?repo={}&tag={}", image_name, new_image_tag, image_reference),
@@ -63,6 +66,7 @@ async fn perform_docker_pull_push(image_name: &str, image_reference: &str) -> Re
         DOCKER_SOCKET_PATH,
         &format!("/images/{}/push", new_image_tag),
     );
+    println!("PUSH_URL:{:?}", push_url);
     let mut push_req = Request::post(push_url).body(Body::empty()).unwrap();
     push_req.headers_mut().insert("X-Registry-Auth", "123".parse().unwrap());
     push_req.headers_mut().insert(CONTENT_TYPE, HeaderValue::from_static("application/vnd.docker.distribution.manifest.v2+json"));
