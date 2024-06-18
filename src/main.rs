@@ -10,8 +10,6 @@ const DOCKER_SOCKET_PATH: &str = "/var/run/docker.sock";
 const DOCKER_REGISTER_HOST_MACHINE_PORT: i32 = 15000;
 
 async fn handle_request(req: Request<Body>) -> Result<Response<Body>, Infallible> {
-    println!("{},{}", req.method(), req.uri());
-
     if let Some((image_name, image_reference)) = extract_image_info(req.method(), req.uri()) {
         if let Err(err) = perform_docker_pull_push(&image_name, &image_reference).await {
             eprintln!("Error in pulling and pushing Docker image: {}", err);
@@ -20,11 +18,13 @@ async fn handle_request(req: Request<Body>) -> Result<Response<Body>, Infallible
 
     let method = req.method().clone();
     let uri = format!("{}{}", DOCKER_REGISTER_URL, req.uri().path_and_query().map(|p| p.as_str()).unwrap_or("")).parse::<Uri>().unwrap();
-    println!("URI: {}", uri);
+    let headers = req.headers().clone();
+
     let client = Client::new();
     let mut new_req = Request::new(req.into_body());
     *new_req.method_mut() = method;
     *new_req.uri_mut() = uri;
+    *new_req.headers_mut() = headers;
 
     match client.request(new_req).await {
         Ok(res) => Ok(res),
@@ -33,12 +33,14 @@ async fn handle_request(req: Request<Body>) -> Result<Response<Body>, Infallible
 }
 
 fn extract_image_info(method: &Method, uri: &Uri) -> Option<(String, String)> {
-    if method == Method::GET && uri.path().starts_with("/v2/") {
+    if (method == Method::GET || method == Method::HEAD) && uri.path().starts_with("/v2/") {
         let segments: Vec<&str> = uri.path().trim_start_matches("/v2/").split('/').collect();
         if segments.len() >= 3 && segments[segments.len() - 2] == "manifests" {
             let image_name = segments[0..(segments.len() - 2)].join("/");
             let image_reference = segments.last().unwrap().to_string();
-            return Some((image_name, image_reference));
+            if !image_reference.starts_with("sha256:") {
+                return Some((image_name, image_reference));
+            }
         }
     }
     None
@@ -49,31 +51,30 @@ async fn perform_docker_pull_push(image_name: &str, image_reference: &str) -> Re
 
     let pull_url = LocalUri::new(
         DOCKER_SOCKET_PATH,
-        &format!("/images/create?fromImage={}:{}", image_name, image_reference),
+        &format!("/images/create?fromImage={}&tag={}", image_name, image_reference),
     );
     let pull_req = Request::post(pull_url).body(Body::empty()).unwrap();
     docker_client.request(pull_req).await?;
 
-    let new_image_tag = format!("{}:{}/{}:{}", "127.0.0.1", DOCKER_REGISTER_HOST_MACHINE_PORT, image_name, image_reference);
+    let new_image_tag = format!("127.0.0.1:{}/{}:{}", DOCKER_REGISTER_HOST_MACHINE_PORT, image_name, image_reference);
     let tag_url = LocalUri::new(
         DOCKER_SOCKET_PATH,
-        &format!("/images/{}/tag?repo={}&tag={}", image_name, new_image_tag, image_reference),
+        &format!("/images/{}:{}/tag?repo={}&tag={}", image_name, image_reference, format!("127.0.0.1:{}/{}", DOCKER_REGISTER_HOST_MACHINE_PORT, image_name), image_reference),
     );
     let tag_req = Request::post(tag_url).body(Body::empty()).unwrap();
-    docker_client.request(tag_req).await?;
+    let res = docker_client.request(tag_req).await?;
+    let body_bytes = to_bytes(res.into_body()).await.unwrap();
 
     let push_url = LocalUri::new(
         DOCKER_SOCKET_PATH,
         &format!("/images/{}/push", new_image_tag),
     );
-    println!("PUSH_URL:{:?}", push_url);
+
     let mut push_req = Request::post(push_url).body(Body::empty()).unwrap();
     push_req.headers_mut().insert("X-Registry-Auth", "123".parse().unwrap());
     push_req.headers_mut().insert(CONTENT_TYPE, HeaderValue::from_static("application/vnd.docker.distribution.manifest.v2+json"));
 
-    let push_res = docker_client.request(push_req).await?;
-    let push_body_bytes = to_bytes(push_res.into_body()).await.unwrap();
-    println!("Push Response Body: {}", String::from_utf8_lossy(&push_body_bytes));
+    docker_client.request(push_req).await?;
 
     Ok(())
 }
