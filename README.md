@@ -1,14 +1,14 @@
 # registry-mirror-proxy
 
-代理自建 Register API
+代理自建 Registry API
 
 ## Features:
 
-1. 拦截 Docker Pull Image 请求，将 Image 同步到 Docker Register，再返回 Image
+1. 拦截 Docker Pull Image 请求，将 Image 同步到 Docker Registry，再返回 Image
 
 ## Upcoming Features
 
-1. NPM Register API 
+1. NPM Registry API 
 
 ## Credits
 

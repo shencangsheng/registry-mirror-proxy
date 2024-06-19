@@ -5,9 +5,9 @@ use hyperlocal::{UnixClientExt, Uri as LocalUri};
 use std::convert::Infallible;
 use hyper::header::{CONTENT_TYPE, HeaderValue};
 
-const DOCKER_REGISTER_URL: &str = "http://docker-registry:5000";
+const DOCKER_REGISTRY_URL: &str = "http://docker-registry:5000";
 const DOCKER_SOCKET_PATH: &str = "/var/run/docker.sock";
-const DOCKER_REGISTER_HOST_MACHINE_PORT: i32 = 15000;
+const DOCKER_REGISTRY_HOST_MACHINE_PORT: i32 = 15000;
 
 async fn handle_request(req: Request<Body>) -> Result<Response<Body>, Infallible> {
     println!("Request: {},{}", req.method(), req.uri());
@@ -18,7 +18,7 @@ async fn handle_request(req: Request<Body>) -> Result<Response<Body>, Infallible
     }
 
     let method = req.method().clone();
-    let uri = format!("{}{}", DOCKER_REGISTER_URL, req.uri().path_and_query().map(|p| p.as_str()).unwrap_or("")).parse::<Uri>().unwrap();
+    let uri = format!("{}{}", DOCKER_REGISTRY_URL, req.uri().path_and_query().map(|p| p.as_str()).unwrap_or("")).parse::<Uri>().unwrap();
     let headers = req.headers().clone();
 
     let client = Client::new();
@@ -59,10 +59,10 @@ async fn perform_docker_pull_push(image_name: &str, image_reference: &str) -> Re
     let body_bytes = to_bytes(pull_res.into_body()).await.unwrap();
     println!("Pull Response Body: {}", String::from_utf8_lossy(&body_bytes));
 
-    let new_image_tag = format!("127.0.0.1:{}/{}:{}", DOCKER_REGISTER_HOST_MACHINE_PORT, image_name, image_reference);
+    let new_image_tag = format!("127.0.0.1:{}/{}:{}", DOCKER_REGISTRY_HOST_MACHINE_PORT, image_name, image_reference);
     let tag_url = LocalUri::new(
         DOCKER_SOCKET_PATH,
-        &format!("/images/{}:{}/tag?repo={}&tag={}", image_name, image_reference, format!("127.0.0.1:{}/{}", DOCKER_REGISTER_HOST_MACHINE_PORT, image_name), image_reference),
+        &format!("/images/{}:{}/tag?repo={}&tag={}", image_name, image_reference, format!("127.0.0.1:{}/{}", DOCKER_REGISTRY_HOST_MACHINE_PORT, image_name), image_reference),
     );
     let tag_req = Request::post(tag_url).body(Body::empty()).unwrap();
     let res = docker_client.request(tag_req).await?;
