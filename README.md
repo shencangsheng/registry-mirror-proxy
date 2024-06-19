@@ -8,7 +8,7 @@
 
 ## Upcoming Features
 
-1. NPM Registry API 
+1. npm Registry API 
 
 ## Credits
 
