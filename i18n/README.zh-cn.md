@@ -1,5 +1,7 @@
 # registry-mirror-proxy
 
+[![Docker Pulls](https://img.shields.io/docker/pulls/yourusername/yourimage.svg)](https://hub.docker.com/r/shencangsheng/registry-mirror-proxy)
+
 [English](https://github.com/shencangsheng/registry-mirror-proxy) | 简体中文
 
 代理自建 Registry API
