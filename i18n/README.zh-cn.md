@@ -1,16 +1,16 @@
 # registry-mirror-proxy
 
-English | [简体中文](./i18n/README.zh-cn.md)
+[English](https://github.com/shencangsheng/registry-mirror-proxy) | 简体中文
 
-Proxy Registry API
+代理自建 Registry API
 
 ## Features:
 
-1. Intercept Docker Pull Image requests, synchronize the Image to Docker Registry, and then return the Image.
+1. 拦截 Docker Pull Image 请求，将 Image 同步到 Docker Registry，再返回 Image
 
 ## Upcoming Features
 
-1. npm Registry API 
+1. npm Registry API
 
 ## Credits
 
