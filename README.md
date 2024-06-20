@@ -12,6 +12,20 @@ Proxy Registry API
 
 1. npm Registry API 
 
+## Principle
+
+```mermaid
+graph TD;
+    A[Docker Request] --> B[Docker Registry Proxy];
+    B --> C{docker pull?};
+    C -- Yes --> D[docker pull image];
+    C -- No --> E[Docker Registry Server];
+    D --> F[Upload Docker Registry];
+    F --> E
+    E -- Response --> B
+    B -- Response --> A
+```
+
 ## Credits
 
 This project was inspired by the [shencangsheng/easy-registry-mirror](https://github.com/shencangsheng/easy-registry-mirror) available in the GitHub project.
