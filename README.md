@@ -8,21 +8,17 @@ Proxy Registry API
 
 ## Features:
 
-1. Intercept Docker Pull Image requests, synchronize the Image to Docker Registry, and then return the Image.
-
-## Upcoming Features
-
-1. npm Registry API 
+1. Intercept the Get Docker image API, synchronize the image to the Docker registry, and then forward the request to the registry server.
 
 ## Principle
 
 ```mermaid
 graph TD;
-    A[Docker Request] --> B[Docker Registry Proxy];
-    B --> C{docker pull?};
-    C -- Yes --> D[docker pull image];
-    C -- No --> E[Docker Registry Server];
-    D --> F[Upload Docker Registry];
+    A[Docker request] --> B[Docker registry proxy];
+    B --> C{Get Docker image API?};
+    C -- Yes --> D[Docker pull image];
+    C -- No --> E[Docker registry server];
+    D --> F[Upload Docker registry];
     F --> E
     E -- Response --> B
     B -- Response --> A
