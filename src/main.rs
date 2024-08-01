@@ -1,19 +1,51 @@
 use hyper::body::to_bytes;
 use hyper::service::{make_service_fn, service_fn};
-use hyper::{Body, Client, Method, Request, Response, Server, Uri};
+use hyper::{Body, Client, Method, Request, Response, Server, StatusCode, Uri};
 use hyperlocal::{UnixClientExt, Uri as LocalUri};
 use std::convert::Infallible;
+use chrono::Local;
 use hyper::header::{CONTENT_TYPE, HeaderValue};
 
 const DOCKER_REGISTRY_URL: &str = "http://docker-registry:5000";
 const DOCKER_SOCKET_PATH: &str = "/var/run/docker.sock";
 const DOCKER_REGISTRY_HOST_MACHINE_PORT: i32 = 15000;
 
+fn now() -> String {
+    Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
+}
+
+async fn does_image_tag_exist(image_name: &str, image_reference: &str) -> bool {
+    let mut req = Request::get(format!("{}/v2/{}/manifests/{}", DOCKER_REGISTRY_URL, image_name, image_reference)).body(Body::empty()).unwrap();
+    req.headers_mut().insert("X-Registry-Auth", "123".parse().unwrap());
+    req.headers_mut().insert(CONTENT_TYPE, HeaderValue::from_static("application/vnd.docker.distribution.manifest.v2+json"));
+
+    let client = Client::new();
+    let res = client.request(req).await;
+
+    match res {
+        Ok(r) => {
+            match r.status() {
+                StatusCode::OK => true,
+                StatusCode::NOT_FOUND => false,
+                _ => false
+            }
+        }
+        Err(_) => {
+            false
+        }
+    }
+}
+
 async fn handle_request(req: Request<Body>) -> Result<Response<Body>, Infallible> {
-    println!("Request: {},{}", req.method(), req.uri());
+    println!("{} Request: {},{}", now(), req.method(), req.uri());
     if let Some((image_name, image_reference)) = extract_image_info(req.method(), req.uri()) {
-        if let Err(err) = perform_docker_pull_push(&image_name, &image_reference).await {
-            eprintln!("Error in pulling and pushing Docker image: {}", err);
+        if !does_image_tag_exist(&image_name, &image_reference).await {
+            println!("{} Tag '{}' does not exist in repository '{}'", now(), &image_name, &image_reference);
+            if let Err(err) = perform_docker_pull_push(&image_name, &image_reference).await {
+                eprintln!("{} Error in pulling and pushing Docker image: {}", now(), err);
+            }
+        } else {
+            println!("{} Tag '{}' exists in repository '{}'", now(), &image_reference, &image_name);
         }
     }
 
@@ -57,7 +89,7 @@ async fn perform_docker_pull_push(image_name: &str, image_reference: &str) -> Re
     let pull_req = Request::post(pull_url).body(Body::empty()).unwrap();
     let pull_res = docker_client.request(pull_req).await?;
     let body_bytes = to_bytes(pull_res.into_body()).await.unwrap();
-    println!("Pull Response Body: {}", String::from_utf8_lossy(&body_bytes));
+    println!("{} Pull Response Body: {}", now(), String::from_utf8_lossy(&body_bytes));
 
     let new_image_tag = format!("127.0.0.1:{}/{}:{}", DOCKER_REGISTRY_HOST_MACHINE_PORT, image_name, image_reference);
     let tag_url = LocalUri::new(
@@ -67,7 +99,7 @@ async fn perform_docker_pull_push(image_name: &str, image_reference: &str) -> Re
     let tag_req = Request::post(tag_url).body(Body::empty()).unwrap();
     let res = docker_client.request(tag_req).await?;
     let body_bytes = to_bytes(res.into_body()).await.unwrap();
-    println!("Tag Response Body: {}", String::from_utf8_lossy(&body_bytes));
+    println!("{} Tag Response Body: {}", now(), String::from_utf8_lossy(&body_bytes));
 
     let push_url = LocalUri::new(
         DOCKER_SOCKET_PATH,
@@ -80,7 +112,7 @@ async fn perform_docker_pull_push(image_name: &str, image_reference: &str) -> Re
 
     let push_res = docker_client.request(push_req).await?;
     let push_body_bytes = to_bytes(push_res.into_body()).await.unwrap();
-    println!("Push Response Body: {}", String::from_utf8_lossy(&push_body_bytes));
+    println!("{} Push Response Body: {}", now(), String::from_utf8_lossy(&push_body_bytes));
 
     Ok(())
 }
